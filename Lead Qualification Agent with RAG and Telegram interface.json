@@ -1,0 +1,517 @@
+{
+  "name": "Lead Qualification Agent with RAG and Telegram interface",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "upload-document",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        240
+      ],
+      "id": "47be3f80-0c6a-426e-a9ff-9dc515c43584",
+      "name": "Upload Webhook",
+      "webhookId": "upload-document-webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, filename: $('Upload Webhook').item.json.body.filename, message: 'Document ingested successfully' } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1072,
+        240
+      ],
+      "id": "4512fea2-c711-4452-8e8a-c52066badb85",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=User message:\n{{ $json.message.text }}\n\nInstructions:\n- If Name and Email are not yet captured, extract them from the user message.\n- If both are present and valid, confirm and proceed.\n- If missing or invalid, ask the user to provide both Name and Email.\n- If already registered, answer the query normally and assess lead qualification.",
+        "options": {
+          "systemMessage": "You are an AI assistant interacting with users on Telegram.\n\nYour workflow has two stages:\n\nSTAGE 1: USER REGISTRATION\n- At the beginning of the conversation, the user must provide their Name and Email ID.\n- The expected input format is free text (e.g., \"Amaresh Sahoo, amaresh@gmail.com\").\n- Your task is to extract the Name and Email from the user message.\n\nRules for extraction:\n- Identify and extract a valid email address.\n- Extract the name as the remaining part of the input.\n- Do not assume or hallucinate missing values.\n- If either Name or Email is missing or invalid, ask the user again clearly.\n\nValidation:\n- Email must follow a valid format (example: abc@domain.com).\n- If invalid or missing, respond:\n  \"Please enter both your Name and a valid Email ID to continue.\"\n\nSTAGE 2: CONVERSATION & LEAD QUALIFICATION\n- Once Name and Email are successfully captured, proceed with normal conversation.\n- Answer user queries using the available knowledge base (Supabase RAG tool).\n- Maintain a natural conversational tone suitable for Telegram.\n- Collect lead qualification signals during the conversation.\n- Generate a lead score from 0 to 100.\n\nLead scoring factors:\n- Interest in solution\n- Business use case clarity\n- Budget intent\n- Timeline urgency\n- Implementation interest\n\nOutput Rules:\n- Always return output in valid JSON only.\n- Do not return plain text.\n\nOutput format:\n{\n  \"reply_to_user\": \"\",\n  \"user_registered\": true/false,\n  \"lead_data\": {\n    \"name\": \"\",\n    \"email\": \"\",\n    \"use_case\": \"\",\n    \"budget\": \"\",\n    \"timeline\": \"\",\n    \"intent_level\": \"\"\n  },\n  \"lead_score\": 0,\n  \"qualified\": false,\n  \"reason\": \"\",\n  \"conversation_summary\": \"\"\n}\n\nSpecial Conditions:\n- If user is not yet registered → user_registered = false, lead_score = 0\n- If registered → user_registered = true and continue scoring\n- Mark qualified = true when lead_score >= 70"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        528,
+        880
+      ],
+      "id": "e3f98135-17da-4661-a0ef-5c43bb394049",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Call this tool to look up information from the uploaded knowledge base to help answer the user's question.",
+        "tableName": {
+          "__rl": true,
+          "value": "documents",
+          "mode": "list",
+          "cachedResultName": "documents"
+        },
+        "topK": 5,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        720,
+        1104
+      ],
+      "id": "b0d9091b-76ef-45f8-a7c6-54775b9c747a",
+      "name": "Supabase Vector Store1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "JKrwRdWtYCEvVyaq",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        752,
+        1296
+      ],
+      "id": "58c88fb0-d626-49bd-ae29-44786357744f",
+      "name": "Embeddings OpenAI1",
+      "credentials": {
+        "openAiApi": {
+          "id": "gM0mJlEHsFMuBAW7",
+          "name": "OpenAI Bell"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Document Ingestion (Web Upload)\nWebhook receives parsed CSV/Excel/Text content from the web tool, embeds it via OpenAI, and stores it in the `documents` table in Supabase.\n",
+        "height": 608,
+        "width": 1648
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -80,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "b808848d-526b-40b1-8506-eec8b3ac8ffa",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Query our RAG (Telegram)\n",
+        "height": 784,
+        "width": 2000
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -64,
+        672
+      ],
+      "typeVersion": 1,
+      "id": "d99ce151-51e2-47c7-b5da-d2d5828e1ec6",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        880
+      ],
+      "id": "18d2ca6f-9b04-4f50-896b-847b17dc82bb",
+      "name": "Telegram Trigger",
+      "webhookId": "a20bd5bb-9094-488c-b9a4-59475c580519",
+      "credentials": {
+        "telegramApi": {
+          "id": "dF9NfL9fUx3FTys4",
+          "name": "Telegram Bell account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4c98d519-3025-40aa-aed7-35fbd9ea09a0",
+              "leftValue": "={{ $json.lead_score }}",
+              "rightValue": 69,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1216,
+        880
+      ],
+      "id": "bac3260d-7456-486b-9de6-c083e3850acb",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "=sales@sales.com",
+        "subject": "New Lead – {{$json.Name}} (Score: {{$json.lead_score}})",
+        "message": "=A new lead has been captured from the Telegram chatbot.  Name: {{$json.Name}} Email: {{$json.Email}} Lead Score: {{$json.lead_score}}  Please follow up with the lead at the earliest.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1536,
+        784
+      ],
+      "id": "2006b9b8-7f8a-4079-aed3-81a2115d9493",
+      "name": "Send a message",
+      "webhookId": "931e4bcd-4001-4f73-bfae-461ed2e8b289",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "MTzer4MNXRwyE36l",
+          "name": "Gmail OAuth (Sales Account)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.reply_to_user }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1536,
+        976
+      ],
+      "id": "e7ca44f4-ced1-4d30-ad03-b3799a8d50b7",
+      "name": "Send a text message",
+      "webhookId": "42b82faf-7477-422a-a3af-60186ee80a7e",
+      "credentials": {
+        "telegramApi": {
+          "id": "dF9NfL9fUx3FTys4",
+          "name": "Telegram Bell account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.message.from.id }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        608,
+        1104
+      ],
+      "id": "4ab351f6-2265-4861-9a57-2cbb366cdc28",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get raw output from AI Agent\nlet raw = $json.output ?? \"\";\n\n// Step 1: Remove markdown formatting (```json ... ```)\nraw = String(raw).replace(/```json/g, '').replace(/```/g, '').trim();\n\n// Fallback text Telegram will accept when the agent fails to produce\n// valid JSON — empty strings cause a 400 from sendMessage.\nconst FALLBACK_REPLY = \"Sorry, I had trouble forming a reply. Please try again.\";\n\n// Step 2: Parse JSON safely\nlet parsed;\n\ntry {\n  parsed = JSON.parse(raw);\n} catch (error) {\n  return [\n    {\n      json: {\n        parse_success: false,\n        Name: \"\",\n        Email: \"\",\n        reply_to_user: raw && raw.length < 4000 ? raw : FALLBACK_REPLY,\n        lead_score: 0,\n        error: \"Invalid JSON format\",\n        raw_output: raw\n      }\n    }\n  ];\n}\n\n// Step 3: Extract Name & Email (always keep keys)\nconst name = parsed.lead_data?.name || \"\";\nconst email = parsed.lead_data?.email || \"\";\n\n// Step 4: Return structured output\nreturn [\n  {\n    json: {\n      parse_success: true,\n      Name: name,\n      Email: email,\n      reply_to_user: parsed.reply_to_user || FALLBACK_REPLY,\n      lead_score: parsed.lead_score || 0\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        880
+      ],
+      "id": "97d38360-7eeb-4226-a92e-17a87ef29f11",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": {
+          "__rl": true,
+          "value": "documents",
+          "mode": "list",
+          "cachedResultName": "documents"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        688,
+        240
+      ],
+      "id": "df4010a9-c019-4847-893b-fefc36ffd45c",
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "JKrwRdWtYCEvVyaq",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        576,
+        464
+      ],
+      "id": "0273be6a-c1a1-433d-8ca7-63137a4b5193",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "gM0mJlEHsFMuBAW7",
+          "name": "OpenAI Bell"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $('Upload Webhook').item.json.body.content }}",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "source",
+                "value": "={{ $('Upload Webhook').item.json.body.filename }}"
+              },
+              {
+                "name": "uploaded_at",
+                "value": "={{ $now.toISO() }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        816,
+        464
+      ],
+      "id": "79256c38-5eff-40a8-9829-15d9d420c1b7",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        400,
+        1088
+      ],
+      "id": "726c53c0-eeb6-412c-845f-de53ba8e39fb",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "gksbJzfExRKMKFf6",
+          "name": "Google Gemini(PaLM) Bell"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Upload Webhook": {
+      "main": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d08eb78f-38c5-4d02-bd94-2fa63f19a8fc",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dd9d815cb100cab73a9cd63cc3f30fd090e73e9edbdc09a51a025bdf1bf015af"
+  },
+  "id": "KrYn8uoBXEiZCt0m",
+  "tags": [
+    {
+      "updatedAt": "2026-04-15T10:13:42.944Z",
+      "createdAt": "2026-04-15T10:13:42.944Z",
+      "id": "AlEgvUKjNY9ItMfA",
+      "name": "Activity"
+    }
+  ]
+}
